@@ -1,0 +1,148 @@
+function handler(event) {
+    var request = event.request;
+    var uri = request.uri;
+    var host = request.headers.host.value;
+
+    // --- www redirect ---
+    if (host === 'directvla.com') {
+        return redirect('https://www.directvla.com' + uri, '301');
+    }
+
+    // --- Skip static assets (but NOT /ecom/ paths) ---
+    var lastSegment = uri.split('/').pop();
+    if (uri.indexOf('/ecom/') !== 0 && (uri.indexOf('/_next/') === 0 || uri.indexOf('/static/') === 0 || lastSegment.indexOf('.') !== -1 || uri.indexOf('/mw/') === 0)) {
+        return request;
+    }
+
+    // --- Deep links (exact match, 301) ---
+    var DEEP_LINKS = {
+        '/hbo': 'https://midirectvlatam.page.link/CompraHBOMax',
+        '/universal': 'https://midirectvlatam.page.link/Compra_Universal',
+        '/paramount': 'https://midirectvlatam.page.link/CompraPremium',
+        '/disney': 'https://midirectvlatam.page.link/CompraPremium',
+        '/hotpack': 'https://midirectvlatam.page.link/compraHotPack',
+        '/primevideo': 'https://api.whatsapp.com/send?phone=5491170442222&text=Quiero+PRIME+VIDEO'
+    };
+    if (DEEP_LINKS[uri]) {
+        return redirect(DEEP_LINKS[uri], '301');
+    }
+
+    // --- Redirect rules (evaluated in order, first match wins) ---
+    var m;
+
+    // es- prefix removal
+    m = uri.match(/^\/es-(co|ar|uy|pe|ec|cl|pr)\/(.*)/i);
+    if (m) { return redirect('https://' + host + '/' + m[1].toLowerCase() + '/' + m[2], '303'); }
+
+    // AR nominados
+    if (/^\/ar\/nominados$/.test(uri)) { return redirect('https://www.directvla.com/ar/pdf/Bases-y-Condiciones_2025_Abril_Concurso-Nominados-La-Trivia-DIRECTV.pdf', '303'); }
+
+    // Plataformas
+    m = uri.match(/^\/(ar|uy|pe|co|ec)\/plataformas$/i);
+    if (m) { return redirect('https://www.directvla.com/' + m[1].toLowerCase() + '/plataformas-streaming', '302'); }
+
+    // Control Remoto per country
+    m = uri.match(/^\/(ar)\/controlremoto$/i);
+    if (m) { return redirect('https://www.directvla.com/ar/ayuda/home/section?categoryId=254e1e24-89c1-4cd0-995b-0d1f55084996', '302'); }
+    m = uri.match(/^\/(uy)\/controlremoto$/i);
+    if (m) { return redirect('https://www.directvla.com/uy/ayuda/home/section?categoryId=254e1e24-89c1-4cd0-995b-0d1f55084992', '302'); }
+    m = uri.match(/^\/(cl|co|ec|pe)\/controlremoto$/i);
+    if (m) { return redirect('https://www.directvla.com/' + m[1].toLowerCase() + '/ayuda/home/section?categoryId=06a5c707-1e48-43e8-84c8-77a110b098c4', '302'); }
+    if (/^\/controlremoto$/.test(uri)) { return redirect('https://www.directvla.com/ar/ayuda/home/section?categoryId=254e1e24-89c1-4cd0-995b-0d1f55084996', '302'); }
+
+    // Deco
+    if (/^\/cl\/deco$/i.test(uri)) { return redirect('https://www.directvla.com/cl/ayuda/articles?id=6d7ff704-87ce-4fda-9351-8fb643b3b64d', '302'); }
+    m = uri.match(/^\/(ar|uy|pe|co|ec)\/deco$/i);
+    if (m) { return redirect('https://www.directvla.com/' + m[1].toLowerCase() + '/ayuda/articles?id=6d7ff704-87ce-4fda-9351-8fb643b3b6' + m[1].toLowerCase(), '302'); }
+    if (/^\/deco$/.test(uri)) { return redirect('https://www.directvla.com/ar/ayuda/articles?id=6d7ff704-87ce-4fda-9351-8fb643b3b6ar', '302'); }
+
+    // Ecommerce URL normalization redirects (skip static assets)
+    if (uri.indexOf('/ecom/_next/') === 0) { return request; }
+    m = uri.match(/^\/ecom\/(.+?)\/(.+?)\/checkout$/i);
+    if (m) { return redirect('/' + m[1] + '/' + m[2] + '/comprar/checkout', '302'); }
+    m = uri.match(/^\/ecom\/(.+?)\/(.+?)\/medios-de-pago$/i);
+    if (m) { return redirect('/' + m[1] + '/' + m[2] + '/comprar/payment-method', '302'); }
+    m = uri.match(/^\/ecom\/(.+?)\/(.+?)\/pago-tarjeta$/i);
+    if (m) { return redirect('/' + m[1] + '/' + m[2] + '/comprar/pago-tarjeta', '302'); }
+    m = uri.match(/^\/(co|ar|uy|pe|ec|cl)\/comprar\/confirmation-success$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/comprar/confirmation-ok', '303'); }
+    m = uri.match(/^\/(co|ar|uy|pe|ec|cl)\/(.+?)\/comprar\/confirmation-success$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/comprar/confirmation-ok', '303'); }
+    m = uri.match(/^\/(co|ar|uy|pe|ec|cl)\/(.+?)\/comprar\/confirmation-error$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/comprar/confirmation-fail', '303'); }
+    m = uri.match(/^\/(co|ar|uy|pe|ec|cl)\/comprar\/confirmation-error$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/comprar/confirmation-fail', '303'); }
+    m = uri.match(/^\/ecom\/(.+?)\/confirmation-ok$/i);
+    if (m) { return redirect('/' + m[1] + '/comprar/confirmation-ok', '302'); }
+    m = uri.match(/^\/ecom\/(.+?)\/confirmation-fail$/i);
+    if (m) { return redirect('/' + m[1] + '/comprar/confirmation-fail', '302'); }
+    m = uri.match(/^\/ecom\/(.+?)\/planes\/(.+?)\/(.+)/i);
+    if (m) { return redirect('/' + m[1] + '/' + m[2] + '/comprar/' + m[3], '302'); }
+
+    // Ineba without country
+    m = uri.match(/^\/servicios\/ineba\/(.+)$/i);
+    if (m) { return redirect('https://www.directvla.com/ar/servicios/ineba/' + m[1], '302'); }
+
+    // AccessOne without country
+    if (/^\/accessone\/thank-you-page$/.test(uri)) { return redirect('https://www.directvla.com/uy/accessone/thank-you-page', '302'); }
+
+    // UY Legales
+    if (/^\/uy\/legales$/i.test(uri)) { return redirect('/uy/terminos-y-condiciones', '302'); }
+
+    // Comprar premiums
+    m = uri.match(/^\/(co|ar|uy|pe|ec|cl)\/comprar\/canales-premium$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/servicios/premium', '301'); }
+
+    // Internet redirects
+    m = uri.match(/^\/(ar|uy|pe|ec|cl)\/catalogo\/internet$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/servicios/internet', '301'); }
+    m = uri.match(/^\/(ar|uy|pe|ec|cl)\/comprar\/(internet|directv-internet)$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/servicios/internet', '301'); }
+    m = uri.match(/^\/(co)\/(servicios\/internet|catalogo\/internet|comprar\/(internet|directv-internet))$/i);
+    if (m) { return redirect('/CO/home', '301'); }
+
+    // Planes TV
+    m = uri.match(/^\/(co|ar|uy|pe|ec|cl)\/comprar\/planes-tv$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/servicios/tv-satelital', '301'); }
+
+    // DGO
+    m = uri.match(/^\/(co|ar|uy|pe|ec|cl)\/catalogo\/dgo-tv-online$/i);
+    if (m) { return redirect('/' + m[1].toUpperCase() + '/servicios/dgo', '301'); }
+
+    // --- Geolocation fallback ---
+    var SUPPORTED_COUNTRIES = ['ar', 'co', 'cl', 'ec', 'pe', 'uy'];
+    var ALL_COUNTRIES = ['ar', 'co', 'cl', 'ec', 'pe', 'uy', 'pr'];
+    var countryHeader = request.headers['x-client-country'] || request.headers['cloudfront-viewer-country'];
+    var countryCode = countryHeader ? countryHeader.value.toLowerCase() : 'ar';
+    if (SUPPORTED_COUNTRIES.indexOf(countryCode) === -1) {
+        countryCode = 'ar';
+    }
+
+    var isOnValidPath = uri.indexOf('/ecom/') === 0;
+    for (var i = 0; i < ALL_COUNTRIES.length && !isOnValidPath; i++) {
+        var c = ALL_COUNTRIES[i];
+        if (uri.toLowerCase().indexOf('/' + c + '/') === 0 || uri.toLowerCase() === '/' + c) {
+            isOnValidPath = true;
+        }
+    }
+    if (!isOnValidPath) {
+        var targetPath = (uri === '/' || uri === '/home')
+            ? '/' + countryCode + '/home'
+            : '/' + countryCode + uri;
+        return redirect('https://' + host + targetPath, '302');
+    }
+
+    return request;
+}
+
+function redirect(destination, status) {
+    var descriptions = { '301': 'Moved Permanently', '302': 'Found', '303': 'See Other' };
+    return {
+        statusCode: parseInt(status),
+        statusDescription: descriptions[status] || 'Found',
+        headers: {
+            location: { value: destination },
+            'cache-control': { value: 'max-age=0' }
+        }
+    };
+}
